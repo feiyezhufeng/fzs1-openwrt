@@ -94,6 +94,12 @@ EOF
 
     # 3) 板级文件（02_network / 01_leds 等由 board-files 覆盖）
     cp -a "$HERE/src/board-files/." target/linux/ramips/mt76x8/base-files/
+    #    Windows 上准备的脚本没有执行位，cp -a 会原样带进固件 →
+    #    刷完机 mifi-modem / mifi-rndis.sh 全是 644，RNDIS 起不来（2026-11-11 复盘）。
+    #    base-files 里所有带 shebang 的文件统一补 755。
+    find target/linux/ramips/mt76x8/base-files -type f | while read -r f; do
+        [ "$(head -c 2 "$f" 2>/dev/null)" = '#!' ] && chmod 0755 "$f"
+    done
 
     # 4) 内置面板包（luci-app-fzs）
     mkdir -p package/luci-app-fzs

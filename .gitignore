@@ -5,7 +5,9 @@
 
 # ---- 编译产物（固件走 GitHub Releases，不进源码仓） ----
 build/
-bin/
+# 只忽略仓库根目录的 bin/：写成 "bin/" 会连带吞掉
+# src/luci-app-fzs-files/usr/bin/（fzs-atio 就是这么丢的）
+/bin/
 out/
 *.bin
 *.sqsh

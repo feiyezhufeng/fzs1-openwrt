@@ -48,13 +48,19 @@ endef
 # 直接安装预置文件（files/ 目录下已是最终目录结构）
 define Package/$(PKG_NAME)/install
 	$(CP) ./files/* $(1)/
-	# 权限：脚本可执行（Windows 上准备的 files/ 可能丢失 exec 位，这里统一补齐）
-	for f in usr/bin/fzs-atio usr/libexec/fzs-at usr/libexec/fzs-fwd \
-	         usr/libexec/fzs-net usr/libexec/fzs-smsd usr/libexec/fzs-simretry \
-	         usr/libexec/fzs-wifi etc/init.d/fzs-sms etc/init.d/fzs-simretry; do \
-	    [ -f $(1)/$$f ] && chmod 0755 $(1)/$$f; \
-	done; true
-	chmod 0644 $(1)/usr/libexec/fzs-sms.uc 2>/dev/null || true
+	# 权限：逐个 chmod，不用 for 循环、不用 [ -f ] && chmod 的写法 ——
+	# 实测那种写法在本仓库的 install 阶段没生效，刷进固件后脚本全是 644，
+	# 面板与短信服务直接 Permission denied（2026-11-11 刷机复盘）。
+	chmod 0755 $(1)/usr/bin/fzs-atio
+	chmod 0755 $(1)/usr/libexec/fzs-at
+	chmod 0755 $(1)/usr/libexec/fzs-fwd
+	chmod 0755 $(1)/usr/libexec/fzs-net
+	chmod 0755 $(1)/usr/libexec/fzs-smsd
+	chmod 0755 $(1)/usr/libexec/fzs-simretry
+	chmod 0755 $(1)/usr/libexec/fzs-wifi
+	chmod 0755 $(1)/etc/init.d/fzs-sms
+	chmod 0755 $(1)/etc/init.d/fzs-simretry
+	chmod 0644 $(1)/usr/libexec/fzs-sms.uc
 	# 开机自启：内置进固件时 opkg 的 postinst 不会执行，这里直接把 rc.d 链接落进
 	# 根文件系统（优先级与脚本头 START= 一致：fzs-sms 95 / fzs-simretry 96）。
 	$(INSTALL_DIR) $(1)/etc/rc.d
