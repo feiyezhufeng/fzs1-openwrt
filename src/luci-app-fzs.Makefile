@@ -4,13 +4,13 @@
 # 本包用"预编译文件"方式打包：面板的 ipk 内容已解包放入 files/，
 # 由本 Makefile 直接安装进固件（等价于把 ipk 内置）。
 #
-# 来源：fzs1_panel 项目 luci-app-fzs_0.2.9_all.ipk
+# 来源：fzs1-panel 项目 luci-app-fzs_0.3.7-4_all.ipk
 #
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-fzs
-PKG_VERSION:=0.2.9
-PKG_RELEASE:=1
+PKG_VERSION:=0.3.7
+PKG_RELEASE:=4
 
 PKG_LICENSE:=GPL-3.0-or-later
 PKG_MAINTAINER:=zzt718
@@ -48,13 +48,32 @@ endef
 # 直接安装预置文件（files/ 目录下已是最终目录结构）
 define Package/$(PKG_NAME)/install
 	$(CP) ./files/* $(1)/
-	# 权限：脚本可执行
-	chmod 0755 $(1)/usr/bin/fzs-atio 2>/dev/null || true
-	chmod 0755 $(1)/usr/libexec/fzs-at 2>/dev/null || true
-	chmod 0755 $(1)/usr/libexec/fzs-fwd 2>/dev/null || true
-	chmod 0755 $(1)/usr/libexec/fzs-net 2>/dev/null || true
-	chmod 0755 $(1)/usr/libexec/fzs-smsd 2>/dev/null || true
-	chmod 0755 $(1)/etc/init.d/fzs-sms 2>/dev/null || true
+	# 权限：脚本可执行（Windows 上准备的 files/ 可能丢失 exec 位，这里统一补齐）
+	for f in usr/bin/fzs-atio usr/libexec/fzs-at usr/libexec/fzs-fwd \
+	         usr/libexec/fzs-net usr/libexec/fzs-smsd usr/libexec/fzs-simretry \
+	         usr/libexec/fzs-wifi etc/init.d/fzs-sms etc/init.d/fzs-simretry; do \
+	    [ -f $(1)/$$f ] && chmod 0755 $(1)/$$f; \
+	done; true
+	chmod 0644 $(1)/usr/libexec/fzs-sms.uc 2>/dev/null || true
+	# 开机自启：内置进固件时 opkg 的 postinst 不会执行，这里直接把 rc.d 链接落进
+	# 根文件系统（优先级与脚本头 START= 一致：fzs-sms 95 / fzs-simretry 96）。
+	$(INSTALL_DIR) $(1)/etc/rc.d
+	ln -sf ../init.d/fzs-sms $(1)/etc/rc.d/S95fzs-sms
+	ln -sf ../init.d/fzs-simretry $(1)/etc/rc.d/S96fzs-simretry
+endef
+
+# 用 opkg 单独安装本包时（非固件内置）仍走标准流程
+define Package/$(PKG_NAME)/postinst
+#!/bin/sh
+[ -n "$${IPKG_INSTROOT}" ] && exit 0
+/etc/init.d/fzs-sms enable
+rm -f /tmp/luci-indexcache /tmp/luci-modulecache* 2>/dev/null
+if /etc/init.d/fzs-sms running 2>/dev/null; then
+	/etc/init.d/fzs-sms restart
+else
+	/etc/init.d/fzs-sms start
+fi
+exit 0
 endef
 
 $(eval $(call BuildPackage,$(PKG_NAME)))

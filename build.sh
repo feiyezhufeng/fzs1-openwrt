@@ -124,13 +124,23 @@ config(){
     cd "$SRC"
     cp "$HERE/src/config.seed.v2" .config
     make defconfig
+
+    # 校验关键选项没被 defconfig 静默剔除
+    # （feed 里不存在的包，defconfig 会直接丢掉对应 =y，编译不会报错但功能缺失）
+    local miss=""
+    for opt in CONFIG_PACKAGE_kmod-tun=y CONFIG_PACKAGE_zerotier=y \
+               CONFIG_PACKAGE_luci-app-fzs=y CONFIG_PACKAGE_i2c-tools=y; do
+        grep -qx "$opt" .config || miss="$miss $opt"
+    done
+    [ -z "$miss" ] || die "以下配置未生效（feed 缺包？）：$miss"
+    echo "关键配置已生效：kmod-tun / zerotier / luci-app-fzs / i2c-tools"
 }
 
 # ---------------------------------------------------------------------------
 build(){
     log "编译（首次会下载大量源码，耗时较长）"
     cd "$SRC"
-    make -j"$JOBS" download
+    make -j"$JOBS" download || make -j"$JOBS" download   # 镜像源偶发抽风，失败重试一次
     make -j"$JOBS"
     mkdir -p "$OUT"
     log "收集产物 → $OUT"
